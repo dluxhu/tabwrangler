@@ -12,7 +12,11 @@ import {
   setTabTime,
   setTabTimes,
 } from "./actions/localStorageActions";
-import settings, { SettingsSchema, SettingsSchemaWrangleOption } from "./settings";
+import settings, {
+  LastTabBehaviorOption,
+  SettingsSchema,
+  SettingsSchemaWrangleOption,
+} from "./settings";
 import { ACTIVE_TAB_TIMER_FREEZE_WINDOW_MS } from "./constants";
 import { TabTimes } from "./types";
 import { sortBy } from "lodash-es";
@@ -90,15 +94,13 @@ export function wrangleTabs(
     }
   }
 
-  if (tabIdsToRemove.length > 0)
-    tabIdsToRemove.forEach((tabId) => {
-      // * Intentionally not awaiting tab removal! If removal needs to be awaited then this func
-      //   must be rewritten to get store values before/after async ops.
-      // * Close 1 tab at a time because if an invalid/unclosable tabId is passed in array func
-      //   signature then the *whole call* fails and closes nothing. Close all tabs possible.
-      //   @see https://github.com/tabwrangler/tabwrangler/issues/597
-      void chrome.tabs.remove(tabId);
-    });
+  // Intentionally not awaiting tab removal! If removal needs to be awaited then this func must be
+  // rewritten to get store values before/after async ops.
+  if (tabIdsToRemove.length > 0) {
+    const lastTabUrl = getLastTabUrl(settings.get("lastTabBehavior"), settings.get("lastTabUrl"));
+    if (lastTabUrl == null) removeTabs(tabIdsToRemove);
+    else void removeTabsKeepingLastTab(tabs, tabIdsToRemove, lastTabUrl);
+  }
 
   // Trim saved tabs to the max allocated by the setting. Browser extension storage is limited and
   // thus cannot allow saved tabs to grow indefinitely.
@@ -110,6 +112,68 @@ export function wrangleTabs(
   }
 
   return savedTabs;
+}
+
+/**
+ * Returns `value` as an absolute URL, with "https://" added when it has no scheme, or null when it
+ * is empty or not a URL.
+ */
+export function parseLastTabUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    return new URL(withScheme).href;
+  } catch {
+    return null;
+  }
+}
+
+// The URL for the last tab of a window, or null when Tab Wrangler closes the last tab.
+export function getLastTabUrl(
+  lastTabBehavior: LastTabBehaviorOption,
+  lastTabUrl: string,
+): string | null {
+  switch (lastTabBehavior) {
+    case "blank":
+      return "about:blank";
+    case "url":
+      return parseLastTabUrl(lastTabUrl);
+    default:
+      return null;
+  }
+}
+
+function removeTabs(tabIds: number[]) {
+  // Close 1 tab at a time because if an invalid/unclosable tabId is passed in array func signature
+  // then the *whole call* fails and closes nothing. Close all tabs possible.
+  // @see https://github.com/tabwrangler/tabwrangler/issues/597
+  tabIds.forEach((tabId) => void chrome.tabs.remove(tabId));
+}
+
+/**
+ * Removes the tabs. In each window that would lose all of its tabs, keeps one tab instead: the tab
+ * goes to `url` and is locked. When that fails, the tab is removed too.
+ */
+async function removeTabsKeepingLastTab(tabs: chrome.tabs.Tab[], tabIds: number[], url: string) {
+  const tabIdsToRemove = new Set(tabIds);
+  const windowIds = new Set(tabs.map((tab) => tab.windowId));
+  await Promise.all(
+    Array.from(windowIds, async (windowId) => {
+      try {
+        const windowTabs = await chrome.tabs.query({ windowId });
+        if (!windowTabs.every((tab) => tab.id != null && tabIdsToRemove.has(tab.id))) return;
+        const lastTab = windowTabs.find((tab) => tab.active) ?? windowTabs[0];
+        if (lastTab?.id == null) return;
+        await chrome.tabs.update(lastTab.id, { url });
+        tabIdsToRemove.delete(lastTab.id);
+        await settings.lockTab(lastTab);
+      } catch (error) {
+        console.error("[removeTabsKeepingLastTab]", error);
+      }
+    }),
+  );
+  removeTabs(Array.from(tabIdsToRemove));
 }
 
 // Returns the tabs saved to the corral.

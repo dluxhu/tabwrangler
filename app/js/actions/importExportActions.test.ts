@@ -136,6 +136,8 @@ describe("exportData", () => {
         corralTabSortOrder: null,
         createContextMenu: true,
         debounceOnActivated: true,
+        lastTabBehavior: "closeWindow",
+        lastTabUrl: "",
         lockTabSortOrder: null,
         maxTabs: 1000,
         minTabs: 12,
