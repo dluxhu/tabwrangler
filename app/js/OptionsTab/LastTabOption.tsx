@@ -1,25 +1,27 @@
+import settings, { type LastTabBehaviorOption, type SettingsSchema } from "../settings";
 import cx from "classnames";
 import { parseLastTabUrl } from "../tabUtil";
-import settings from "../settings";
 import useSetting from "../useSetting";
 
 interface Props {
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSaveSetting: <K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]) => void;
 }
 
-export default function LastTabOption({ onChange }: Props) {
+export default function LastTabOption({ onChange, onSaveSetting }: Props) {
   const lastTabBehavior = useSetting("lastTabBehavior");
   const lastTabUrl = useSetting("lastTabUrl");
   const isUrlInvalid = lastTabUrl.trim() !== "" && parseLastTabUrl(lastTabUrl) == null;
 
-  function radio(value: string) {
+  // The radio saves at once. Through the debounced `onChange`, it can cancel a pending URL save.
+  function radio(value: LastTabBehaviorOption) {
     return (
       <input
         checked={lastTabBehavior === value}
         className="form-check-input"
         id={`lastTabBehavior-${value}`}
         name="lastTabBehavior"
-        onChange={onChange}
+        onChange={() => onSaveSetting("lastTabBehavior", value)}
         type="radio"
         value={value}
       />
