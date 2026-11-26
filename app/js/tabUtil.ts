@@ -121,7 +121,9 @@ export function wrangleTabs(
 export function parseLastTabUrl(value: string): string | null {
   const trimmed = value.trim();
   if (trimmed === "") return null;
-  const withScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  // "host:port" looks like a scheme, but it is not one.
+  const hasScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed) && !/^[^:/]+:\d+(?:[/?#]|$)/.test(trimmed);
+  const withScheme = hasScheme ? trimmed : `https://${trimmed}`;
   try {
     return new URL(withScheme).href;
   } catch {
@@ -153,7 +155,7 @@ function removeTabs(tabIds: number[]) {
 
 /**
  * Removes the tabs. In each window that would lose all of its tabs, keeps one tab instead: the tab
- * goes to `url` and is locked. When that fails, the tab is removed too.
+ * goes to `url` and is locked. When either step fails, the tab is removed too.
  */
 async function removeTabsKeepingLastTab(tabs: chrome.tabs.Tab[], tabIds: number[], url: string) {
   const tabIdsToRemove = new Set(tabIds);
@@ -166,8 +168,8 @@ async function removeTabsKeepingLastTab(tabs: chrome.tabs.Tab[], tabIds: number[
         const lastTab = windowTabs.find((tab) => tab.active) ?? windowTabs[0];
         if (lastTab?.id == null) return;
         await chrome.tabs.update(lastTab.id, { url });
-        tabIdsToRemove.delete(lastTab.id);
         await settings.lockTab(lastTab);
+        tabIdsToRemove.delete(lastTab.id);
       } catch (error) {
         console.error("[removeTabsKeepingLastTab]", error);
       }

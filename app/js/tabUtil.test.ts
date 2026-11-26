@@ -297,6 +297,15 @@ describe("wrangleTabsAndPersist last tab of a window", () => {
     expect(settings.cache.lockedIds).toEqual([]);
   });
 
+  test("removes the last tab when locking it fails", async () => {
+    mockSettings("blank");
+    jest.spyOn(settings, "lockTab").mockRejectedValueOnce(new Error("cannot lock"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    await wrangleTabsAndPersist(windowTabs[2]);
+
+    await waitFor(() => expect(chrome.tabs.remove).toHaveBeenCalledWith(3));
+  });
+
   test("closes the window when the URL is not set", async () => {
     mockSettings("url");
     await wrangleTabsAndPersist(windowTabs[2]);
@@ -321,6 +330,12 @@ describe("parseLastTabUrl", () => {
 
   test("adds https:// when the scheme is missing", () => {
     expect(parseLastTabUrl("example.com")).toBe("https://example.com/");
+    expect(parseLastTabUrl("example.com:8443/start")).toBe("https://example.com:8443/start");
+    expect(parseLastTabUrl("localhost:3000")).toBe("https://localhost:3000/");
+  });
+
+  test("keeps a URL without slashes after the scheme", () => {
+    expect(parseLastTabUrl("about:blank")).toBe("about:blank");
   });
 
   test("returns null when empty or not a URL", () => {
