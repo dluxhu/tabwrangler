@@ -307,7 +307,7 @@ export default function OptionsTab() {
             </label>
           </div>
           <PauseWhenIdleOption onSaveSetting={saveSetting} />
-          <LastTabOption onChange={handleSettingsChange} onSaveSetting={saveSetting} />
+          <LastTabOption onChange={handleSettingsChange} />
         </form>
         <ActiveHours onSaveSetting={saveSetting} />
         <h5 className="mt-3">{chrome.i18n.getMessage("tabCorral_name")}</h5>

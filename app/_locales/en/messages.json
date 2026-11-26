@@ -427,24 +427,20 @@
     "message": "Close the tab and the window"
   },
   "options_option_lastTabBehavior_label": {
-    "description": "Label for a dropdown that chooses what Tab Wrangler does when it would close the last tab of a window",
+    "description": "Label for radio buttons that choose what Tab Wrangler does when it would close the last tab of a window",
     "message": "When Tab Wrangler closes the last tab of a window:"
   },
   "options_option_lastTabBehavior_url": {
-    "description": "Option: when Tab Wrangler would close all tabs of a window, it keeps one tab open, goes to the URL from the field options_option_lastTabUrl_label, and locks the tab",
-    "message": "Keep the tab, go to the URL below, and lock it"
-  },
-  "options_option_lastTabUrl_description": {
-    "description": "Help text under the URL field. \"Keep the tab, go to the URL below\" is the option options_option_lastTabBehavior_url",
-    "message": "Enter a URL to show \"Keep the tab, go to the URL below\" above."
+    "description": "Option: when Tab Wrangler would close all tabs of a window, it keeps one tab open, goes to the URL in the text field next to this option, and locks the tab",
+    "message": "Keep the tab, go to this URL, and lock it:"
   },
   "options_option_lastTabUrl_invalid": {
-    "description": "Shown under the URL field when what the user typed is not a valid web address",
-    "message": "Enter a web address, like https://example.com"
+    "description": "Error shown under the URL field when what the user typed is not a valid URL",
+    "message": "This is not a valid URL."
   },
   "options_option_lastTabUrl_label": {
-    "description": "Label for a text field where the user enters the web address to show in the last tab of a window",
-    "message": "URL for the last tab:"
+    "description": "Accessible name of the text field where the user enters the URL to show in the last tab of a window",
+    "message": "URL for the last tab"
   },
   "options_option_minTabs_label": {
     "description": "Label preceding the minimum number of tabs. Stale tabs are tabs whose timer has run out, making them eligible to be auto-closed",

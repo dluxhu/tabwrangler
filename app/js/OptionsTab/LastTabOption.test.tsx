@@ -9,38 +9,49 @@ beforeEach(() => {
   Object.assign(chrome.i18n, { getMessage: (key: string) => key });
 });
 
-function optionValues() {
-  return screen.getAllByRole("option").map((option) => (option as HTMLOptionElement).value);
+function radioValues() {
+  return screen.getAllByRole("radio").map((radio) => (radio as HTMLInputElement).value);
 }
 
 describe("LastTabOption", () => {
-  test("does not offer the URL when it is not set", () => {
-    render(<LastTabOption onChange={jest.fn()} onSaveSetting={jest.fn()} />);
-    expect(optionValues()).toEqual(["closeWindow", "blank"]);
+  test("shows the three choices as radio buttons, with the saved one checked", () => {
+    mockSettings.lastTabBehavior = "blank";
+    render(<LastTabOption onChange={jest.fn()} />);
+    expect(radioValues()).toEqual(["closeWindow", "url", "blank"]);
+    expect(screen.getByRole("radio", { checked: true })).toHaveProperty("value", "blank");
   });
 
-  test("offers the URL when it is set", () => {
-    mockSettings.lastTabUrl = "example.com";
-    render(<LastTabOption onChange={jest.fn()} onSaveSetting={jest.fn()} />);
-    expect(optionValues()).toEqual(["closeWindow", "url", "blank"]);
+  test("puts the URL field in the row of the URL choice", () => {
+    render(<LastTabOption onChange={jest.fn()} />);
+    const urlRadio = screen.getAllByRole("radio")[1];
+    const urlField = screen.getByRole("textbox", { name: "options_option_lastTabUrl_label" });
+    expect(urlRadio.parentElement).toBe(urlField.parentElement);
   });
 
-  test("shows close the window when the URL is chosen but not set", () => {
-    mockSettings.lastTabBehavior = "url";
-    render(<LastTabOption onChange={jest.fn()} onSaveSetting={jest.fn()} />);
-    expect(screen.getByRole("combobox")).toHaveProperty("value", "closeWindow");
+  test("passes radio and URL changes to onChange", () => {
+    const onChange = jest.fn();
+    render(<LastTabOption onChange={onChange} />);
+    fireEvent.click(screen.getAllByRole("radio")[2]);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "example.com" } });
+    expect(onChange.mock.calls.map(([event]) => event.target.name)).toEqual([
+      "lastTabBehavior",
+      "lastTabUrl",
+    ]);
   });
 
-  test("saves the chosen behavior", () => {
-    const onSaveSetting = jest.fn();
-    render(<LastTabOption onChange={jest.fn()} onSaveSetting={onSaveSetting} />);
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "blank" } });
-    expect(onSaveSetting).toHaveBeenCalledWith("lastTabBehavior", "blank");
-  });
-
-  test("tells the user when the URL is not valid", () => {
+  test("shows an error when the URL is not valid", () => {
     mockSettings.lastTabUrl = "http://";
-    render(<LastTabOption onChange={jest.fn()} onSaveSetting={jest.fn()} />);
+    render(<LastTabOption onChange={jest.fn()} />);
     expect(screen.getByText("options_option_lastTabUrl_invalid")).toBeTruthy();
+    expect(screen.getByRole("textbox")).toHaveProperty("ariaInvalid", "true");
+  });
+
+  test("shows no error when the URL is valid or empty", () => {
+    mockSettings.lastTabUrl = "example.com";
+    const { rerender } = render(<LastTabOption onChange={jest.fn()} />);
+    expect(screen.queryByText("options_option_lastTabUrl_invalid")).toBeNull();
+    mockSettings.lastTabUrl = "";
+    rerender(<LastTabOption onChange={jest.fn()} />);
+    expect(screen.queryByText("options_option_lastTabUrl_invalid")).toBeNull();
   });
 });
