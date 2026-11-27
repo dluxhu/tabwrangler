@@ -23,6 +23,22 @@ import { TextEncoder } from "util";
 import { setSavedTabs } from "./actions/localStorageActions";
 import settings from "./settings";
 
+// Window 7 is an app window.
+jest.mock("./appWindows", () => ({
+  __esModule: true,
+  default: { has: (windowId: number) => windowId === 7 },
+}));
+
+function withAppWindowLockRule(tabRules: TabRulesConfig): TabRulesConfig {
+  return {
+    ...tabRules,
+    rules: [
+      { id: "app", match: "every", when: [{ type: "appWindow" }], then: { action: "lock" } },
+      ...tabRules.rules,
+    ],
+  };
+}
+
 function createTabRules({
   filterAudio = false,
   filterGroupedTabs = false,
@@ -270,6 +286,15 @@ describe("getTabLockStatus", () => {
     lockedWindowIds: [],
     tabRules: createTabRules(),
   };
+
+  test("locks a tab in an app window with an app window rule", () => {
+    const options = { ...defaultOptions, tabRules: withAppWindowLockRule(createTabRules()) };
+    expect(getTabLockStatus(createTab({ windowId: 7 }), options)).toMatchObject({
+      locked: true,
+      reason: "rule",
+    });
+    expect(getTabLockStatus(createTab({ windowId: 1 }), options)).toEqual({ locked: false });
+  });
 
   test("returns not locked for a normal tab", () => {
     expect(getTabLockStatus(createTab({ groupId: -1 }), defaultOptions)).toEqual({
@@ -633,6 +658,19 @@ describe("findTabsToWrangleNow", () => {
       makeSettings({ minTabs: 1, tabRules }),
     );
     expect(result.map((t) => t.id)).toEqual([2, 3]);
+  });
+
+  test("never closes tabs in app windows locked by an app window rule", () => {
+    const tabs = [
+      createTab({ id: 1, windowId: 7 }),
+      createTab({ id: 2, windowId: 7 }),
+      createTab({ id: 3 }),
+    ];
+    const result = findTabsToWrangleNow({}, tabs, undefined, {
+      ...makeSettings({ minTabs: 0, minTabsStrategy: "allWindows" }),
+      tabRules: withAppWindowLockRule(createTabRules()),
+    });
+    expect(result.map((t) => t.id)).toEqual([3]);
   });
 
   test("returns [] when unlocked tabs do not exceed minTabs", () => {

@@ -28,6 +28,7 @@ const CONDITION_TYPES: ConditionType[] = [
   "audible",
   "groupId",
   "groupTitle",
+  "appWindow",
 ];
 
 // Condition types the user types text for. Each can appear more than once in a rule.
@@ -571,6 +572,7 @@ function conditionLabel(position: number) {
 }
 
 const CONDITION_TYPE_MESSAGES: Record<ConditionType, string> = {
+  appWindow: "options_tabRules_condition_appWindow",
   audible: "options_tabRules_condition_audible",
   groupId: "options_tabRules_condition_grouped",
   groupTitle: "options_tabRules_condition_groupTitle",
@@ -624,6 +626,13 @@ function ConditionText({ condition }: { condition: TabCondition }) {
         <span className="text-nowrap tab-rule-shrink">
           {conditionTypeLabel(condition.type)}{" "}
           <code className="tab-rule-value">{condition.value}</code>
+        </span>
+      );
+    case "appWindow":
+      return (
+        <span className="text-nowrap">
+          <i className="fas fa-window-maximize me-1" />
+          {conditionTypeLabel("appWindow")}
         </span>
       );
     case "audible":
@@ -1219,6 +1228,7 @@ function conditionToDraft(condition: TabCondition): ConditionDraft | null {
     condition.op === "includes"
   )
     return { type: condition.type, value: condition.value };
+  if (condition.type === "appWindow") return { type: "appWindow", value: "" };
   if (condition.type === "audible") return { type: "audible", value: "" };
   if (condition.type === "groupId" && condition.op === "some")
     return { type: "groupId", value: "" };
@@ -1227,6 +1237,7 @@ function conditionToDraft(condition: TabCondition): ConditionDraft | null {
 }
 
 function draftToCondition(draft: ConditionDraft): TabCondition {
+  if (draft.type === "appWindow") return { type: "appWindow" };
   if (draft.type === "audible") return { type: "audible" };
   if (draft.type === "groupId") return { type: "groupId", op: "some" };
   if (draft.type === "pinned") return { type: "pinned" };
