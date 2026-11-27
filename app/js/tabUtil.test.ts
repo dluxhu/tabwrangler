@@ -772,7 +772,11 @@ describe("resetTabTimesPastTimeout", () => {
     tabTimes: TabTimes,
     tabs: chrome.tabs.Tab[],
   ): Promise<TabTimes> {
-    Object.assign(chrome.tabs, { query: () => Promise.resolve(tabs) });
+    // Like the browser: a `windowType` filter leaves out tabs of app window 7.
+    Object.assign(chrome.tabs, {
+      query: ({ windowType }: chrome.tabs.QueryInfo) =>
+        Promise.resolve(windowType == null ? tabs : tabs.filter((tab) => tab.windowId !== 7)),
+    });
     await chrome.storage.local.set({ tabTimes });
     await resetTabTimesPastTimeout(prev, next);
     return (await chrome.storage.local.get<{ tabTimes: TabTimes }>("tabTimes")).tabTimes;
@@ -795,6 +799,22 @@ describe("resetTabTimesPastTimeout", () => {
     );
     expect(tabTimes["1"]).toBeGreaterThanOrEqual(now);
     expect(tabTimes["2"]).toBe(now - 5 * MINUTE_MS);
+  });
+
+  test("restarts tabs in app windows too, which auto-close also checks", async () => {
+    const now = Date.now();
+    const next: TabRulesConfig = {
+      ...prev,
+      rules: prev.rules.map((rule) =>
+        rule.when.length === 0
+          ? { ...rule, then: { action: "stale", afterSeconds: 600, save: "corral" } }
+          : rule,
+      ),
+    };
+    const tabTimes = await getTabTimesAfterReset(next, { "1": now - 30 * MINUTE_MS }, [
+      createTab({ id: 1, windowId: 7 }),
+    ]);
+    expect(tabTimes["1"]).toBeGreaterThanOrEqual(now);
   });
 
   test("leaves tabs whose timeout did not get shorter", async () => {
