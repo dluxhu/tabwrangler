@@ -1012,6 +1012,10 @@
     "description": "Accessible label for the menu choosing what a tab rule checks, like whether the URL includes some text",
     "message": "Condition"
   },
+  "options_tabRules_condition_appWindow": {
+    "description": "Tab rule condition matching tabs in an app window, like an installed web app (PWA) that opens in its own window. The tab is the implied subject, as in \"If in an app window, then lock tab\"",
+    "message": "In an app window"
+  },
   "options_tabRules_condition_audible": {
     "description": "Tab rule condition matching tabs that are currently playing audio. The tab is the implied subject, as in \"If playing audio, then lock tab\"",
     "message": "Playing audio"

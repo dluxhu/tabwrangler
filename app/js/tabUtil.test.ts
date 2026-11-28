@@ -23,6 +23,22 @@ import { TextEncoder } from "util";
 import { setSavedTabs } from "./actions/localStorageActions";
 import settings from "./settings";
 
+// Window 7 is an app window.
+jest.mock("./appWindows", () => ({
+  __esModule: true,
+  default: { has: (windowId: number) => windowId === 7 },
+}));
+
+function withAppWindowLockRule(tabRules: TabRulesConfig): TabRulesConfig {
+  return {
+    ...tabRules,
+    rules: [
+      { id: "app", match: "every", when: [{ type: "appWindow" }], then: { action: "lock" } },
+      ...tabRules.rules,
+    ],
+  };
+}
+
 function createTabRules({
   filterAudio = false,
   filterGroupedTabs = false,
@@ -270,6 +286,15 @@ describe("getTabLockStatus", () => {
     lockedWindowIds: [],
     tabRules: createTabRules(),
   };
+
+  test("locks a tab in an app window with an app window rule", () => {
+    const options = { ...defaultOptions, tabRules: withAppWindowLockRule(createTabRules()) };
+    expect(getTabLockStatus(createTab({ windowId: 7 }), options)).toMatchObject({
+      locked: true,
+      reason: "rule",
+    });
+    expect(getTabLockStatus(createTab({ windowId: 1 }), options)).toEqual({ locked: false });
+  });
 
   test("returns not locked for a normal tab", () => {
     expect(getTabLockStatus(createTab({ groupId: -1 }), defaultOptions)).toEqual({
@@ -635,6 +660,19 @@ describe("findTabsToWrangleNow", () => {
     expect(result.map((t) => t.id)).toEqual([2, 3]);
   });
 
+  test("never closes tabs in app windows locked by an app window rule", () => {
+    const tabs = [
+      createTab({ id: 1, windowId: 7 }),
+      createTab({ id: 2, windowId: 7 }),
+      createTab({ id: 3 }),
+    ];
+    const result = findTabsToWrangleNow({}, tabs, undefined, {
+      ...makeSettings({ minTabs: 0, minTabsStrategy: "allWindows" }),
+      tabRules: withAppWindowLockRule(createTabRules()),
+    });
+    expect(result.map((t) => t.id)).toEqual([3]);
+  });
+
   test("returns [] when unlocked tabs do not exceed minTabs", () => {
     const tabs = [createTab({ id: 1 }), createTab({ id: 2 }), createTab({ id: 3 })];
     expect(
@@ -734,7 +772,11 @@ describe("resetTabTimesPastTimeout", () => {
     tabTimes: TabTimes,
     tabs: chrome.tabs.Tab[],
   ): Promise<TabTimes> {
-    Object.assign(chrome.tabs, { query: () => Promise.resolve(tabs) });
+    // Like the browser: a `windowType` filter leaves out tabs of app window 7.
+    Object.assign(chrome.tabs, {
+      query: ({ windowType }: chrome.tabs.QueryInfo) =>
+        Promise.resolve(windowType == null ? tabs : tabs.filter((tab) => tab.windowId !== 7)),
+    });
     await chrome.storage.local.set({ tabTimes });
     await resetTabTimesPastTimeout(prev, next);
     return (await chrome.storage.local.get<{ tabTimes: TabTimes }>("tabTimes")).tabTimes;
@@ -757,6 +799,22 @@ describe("resetTabTimesPastTimeout", () => {
     );
     expect(tabTimes["1"]).toBeGreaterThanOrEqual(now);
     expect(tabTimes["2"]).toBe(now - 5 * MINUTE_MS);
+  });
+
+  test("restarts tabs in app windows too, which auto-close also checks", async () => {
+    const now = Date.now();
+    const next: TabRulesConfig = {
+      ...prev,
+      rules: prev.rules.map((rule) =>
+        rule.when.length === 0
+          ? { ...rule, then: { action: "stale", afterSeconds: 600, save: "corral" } }
+          : rule,
+      ),
+    };
+    const tabTimes = await getTabTimesAfterReset(next, { "1": now - 30 * MINUTE_MS }, [
+      createTab({ id: 1, windowId: 7 }),
+    ]);
+    expect(tabTimes["1"]).toBeGreaterThanOrEqual(now);
   });
 
   test("leaves tabs whose timeout did not get shorter", async () => {

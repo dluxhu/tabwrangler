@@ -133,7 +133,7 @@ export async function wrangleTabsAndPersist(
  */
 export async function resetTabTimesPastTimeout(prev: TabRulesConfig, next: TabRulesConfig) {
   const [tabs, { tabTimes }] = await Promise.all([
-    chrome.tabs.query({ windowType: "normal" }),
+    chrome.tabs.query({}),
     chrome.storage.local.get<{ tabTimes: TabTimes }>({ tabTimes: {} }),
   ]);
   const now = Date.now();

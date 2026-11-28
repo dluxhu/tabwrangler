@@ -12,6 +12,12 @@ import {
 } from "./tabRules";
 import tabGroupTitles from "./tabGroupTitles";
 
+// Window 7 is an app window.
+jest.mock("./appWindows", () => ({
+  __esModule: true,
+  default: { has: (windowId: number) => windowId === 7 },
+}));
+
 const LEGACY_DEFAULTS: LegacyRuleSettings = {
   filterAudio: true,
   filterGroupedTabs: false,
@@ -148,6 +154,16 @@ describe("getTabOutcome", () => {
     });
     expect(getTabOutcome(createTab({ audible: true }), config)).toEqual({ action: "lock" });
     expect(getTabOutcome(createTab({ groupId: 4 }), config)).toEqual({ action: "lock" });
+  });
+
+  test("locks tabs in app windows with an app window rule", () => {
+    const appWindowRule: TabRulesConfig = {
+      version: 1,
+      rules: [{ id: "a", match: "every", when: [{ type: "appWindow" }], then: { action: "lock" } }],
+    };
+    expect(isTabRulesConfig(appWindowRule)).toBe(true);
+    expect(getTabOutcome(createTab({ windowId: 7 }), appWindowRule)).toEqual({ action: "lock" });
+    expect(getTabOutcome(createTab({ windowId: 1 }), appWindowRule)).toBeNull();
   });
 
   test("uses the final rule for tabs no other rule matches", () => {

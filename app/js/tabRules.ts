@@ -4,6 +4,7 @@
  * with no conditions matches every tab. A tab that matches no rule is never locked or made stale.
  */
 
+import appWindows from "./appWindows";
 import tabGroupTitles from "./tabGroupTitles";
 
 export const TAB_RULES_VERSION = 1;
@@ -22,6 +23,7 @@ export interface TabRule {
 }
 
 export type TabCondition =
+  | { type: "appWindow" }
   | { type: "audible" }
   | { type: "groupId"; op: "none" | "some" }
   | { type: "groupTitle"; op: "includes"; value: string }
@@ -41,6 +43,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isTabCondition(value: unknown): boolean {
   if (!isRecord(value)) return false;
   switch (value.type as TabCondition["type"]) {
+    case "appWindow":
     case "audible":
     case "pinned":
       return true;
@@ -112,6 +115,8 @@ function matchesCondition(condition: TabCondition, tab: chrome.tabs.Tab): boolea
       return (
         condition.op === "includes" && tab.title != null && tab.title.includes(condition.value)
       );
+    case "appWindow":
+      return appWindows.has(tab.windowId);
     case "audible":
       return tab.audible === true;
     case "groupId": {
