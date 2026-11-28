@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { TabFaviconProvider } from "./TabFavicon";
+import appWindows from "./appWindows";
 import settings from "./settings";
 import tabGroupTitles from "./tabGroupTitles";
 
@@ -23,7 +24,7 @@ export default function App({ children }: { children: React.ReactNode }) {
     async function initSettings() {
       // Await settings that are loaded from async browser storage before rendering.
       console.debug("[App]: awaiting settings.init");
-      await Promise.all([settings.init(), tabGroupTitles.init()]);
+      await Promise.all([appWindows.init(), settings.init(), tabGroupTitles.init()]);
       console.debug("[App]: settings ready!");
       setIsSettingsInit(true);
     }

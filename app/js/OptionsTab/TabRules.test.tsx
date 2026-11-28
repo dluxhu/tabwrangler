@@ -445,6 +445,21 @@ describe("TabRules", () => {
     expect(lastSavedTabRules(onSaveSetting).rules[0].when).toEqual([{ type: "pinned" }]);
   });
 
+  test("adds a rule for tabs in app windows", () => {
+    const onSaveSetting = jest.fn();
+    render(<TabRules onSaveSetting={onSaveSetting} />);
+    fireEvent.click(screen.getByText("options_tabRules_addRule"));
+    fireEvent.change(screen.getByLabelText("options_tabRules_condition"), {
+      target: { value: "appWindow" },
+    });
+    fireEvent.click(screen.getByText("options_save"));
+    expect(lastSavedTabRules(onSaveSetting).rules[0]).toMatchObject({
+      when: [{ type: "appWindow" }],
+      then: { action: "lock" },
+    });
+    expect(screen.getByText("options_tabRules_condition_appWindow")).toBeTruthy();
+  });
+
   test("shows the migrated pinned rule", () => {
     mockSettings.tabRules = buildTabRulesFromLegacySettings({
       filterAudio: false,

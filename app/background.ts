@@ -37,6 +37,7 @@ import {
 } from "./js/commands";
 import { removeAllSavedTabs, unwrangleTabs } from "./js/actions/localStorageActions";
 import Menus from "./js/menus";
+import appWindows from "./js/appWindows";
 import { debounce } from "lodash-es";
 import { getTabOutcome } from "./js/tabRules";
 import settings from "./js/settings";
@@ -120,7 +121,7 @@ chrome.runtime.onStartup.addListener(async () => {
 let onActivatedGeneration = 0;
 chrome.tabs.onActivated.addListener(async function onActivated(tabInfo) {
   const generation = ++onActivatedGeneration;
-  await Promise.all([settings.init(), tabGroupTitles.init()]);
+  await Promise.all([appWindows.init(), settings.init(), tabGroupTitles.init()]);
 
   // *Always* update last accessed because onActivated always matters for each tab
   if (settings.get("debounceOnActivated")) debouncedUpdateLastAccessed(tabInfo.tabId);
@@ -188,7 +189,7 @@ chrome.windows.onRemoved.addListener((windowId: number) => {
 
 chrome.commands.onCommand.addListener(async (command) => {
   // A command can be what starts the service worker, before startup has loaded settings.
-  await Promise.all([settings.init(), tabGroupTitles.init()]);
+  await Promise.all([appWindows.init(), settings.init(), tabGroupTitles.init()]);
   switch (command) {
     case "lock-unlock-active-tab":
       await lockUnlockActiveTab();
@@ -217,7 +218,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 // Before Tab Rules are first saved, the rules in effect are derived from the legacy settings. So a
 // migration that saves them changes no timeouts.
 async function onTabRulesChanged({ newValue, oldValue }: chrome.storage.StorageChange) {
-  await settings.init();
+  await Promise.all([appWindows.init(), settings.init()]);
   await resetTabTimesPastTimeout(
     oldValue ?? settings.getLegacyTabRules(),
     newValue ?? settings.getLegacyTabRules(),
@@ -537,6 +538,7 @@ async function startup() {
     tabsRestoredPromise,
     settings.init(),
     tabGroupTitles.init(),
+    appWindows.init(),
   ]);
 
   await Promise.all([updateIcon(), updateClosedCount()]);

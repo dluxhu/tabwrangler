@@ -411,6 +411,8 @@ function describeCondition(condition: TabCondition): string {
       return chrome.i18n.getMessage("options_tabRules_condition_titleIncludes", condition.value);
     case "url":
       return chrome.i18n.getMessage("options_tabRules_condition_urlIncludes", condition.value);
+    case "appWindow":
+      return chrome.i18n.getMessage("options_tabRules_condition_appWindow");
     case "audible":
       return chrome.i18n.getMessage("options_tabRules_condition_audible");
     case "groupId":
