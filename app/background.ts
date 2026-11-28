@@ -218,7 +218,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 // Before Tab Rules are first saved, the rules in effect are derived from the legacy settings. So a
 // migration that saves them changes no timeouts.
 async function onTabRulesChanged({ newValue, oldValue }: chrome.storage.StorageChange) {
-  await settings.init();
+  await Promise.all([appWindows.init(), settings.init()]);
   await resetTabTimesPastTimeout(
     oldValue ?? settings.getLegacyTabRules(),
     newValue ?? settings.getLegacyTabRules(),
