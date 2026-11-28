@@ -6,9 +6,11 @@ import {
   findTabToFreeze,
   findTabsToCloseCandidates,
   findTabsToWrangleNow,
+  getLastTabUrl,
   getTabLockStatus,
   getURLPositionFilterByWrangleOption,
   makeTabPersistKey,
+  parseLastTabUrl,
   resetTabTimesPastTimeout,
   shouldFreezeActiveTabTimer,
   wrangleTabsAndPersist,
@@ -18,10 +20,11 @@ import {
   buildTabRulesFromLegacySettings,
   createUrlIncludesRule,
 } from "./tabRules";
+import settings, { type LastTabBehaviorOption } from "./settings";
 import { TabTimes } from "./types";
 import { TextEncoder } from "util";
 import { setSavedTabs } from "./actions/localStorageActions";
-import settings from "./settings";
+import { waitFor } from "@testing-library/react";
 
 function createTabRules({
   filterAudio = false,
@@ -220,6 +223,140 @@ describe("wrangleTabsAndPersist", () => {
       expect(size / testTabs.length).toBeLessThanOrEqual(AVERAGE_TAB_BYTES_SIZE);
     },
   );
+});
+
+describe("wrangleTabsAndPersist last tab of a window", () => {
+  // Window 1 holds tabs 1 and 2, and tab 2 is active. Window 2 holds tab 3.
+  const windowTabs: { [windowId: number]: chrome.tabs.Tab[] } = {
+    1: [createTab({ id: 1, windowId: 1 }), createTab({ active: true, id: 2, windowId: 1 })],
+    2: [createTab({ id: 3, windowId: 2 })],
+  };
+
+  function mockSettings(lastTabBehavior: LastTabBehaviorOption, lastTabUrl = "") {
+    settings.cache.lockedIds = [];
+    settings.get = jest.fn().mockImplementation((key: keyof typeof settings.cache) => {
+      switch (key) {
+        case "lastTabBehavior":
+          return lastTabBehavior;
+        case "lastTabUrl":
+          return lastTabUrl;
+        case "maxTabs":
+          return 100;
+        case "minTabs":
+          return 0;
+        default:
+          return settings.cache[key];
+      }
+    });
+    (chrome.tabs.query as jest.Mock).mockImplementation(({ windowId }: { windowId: number }) =>
+      Promise.resolve(windowTabs[windowId] ?? []),
+    );
+    chrome.tabs.update = jest.fn(() => Promise.resolve(undefined));
+  }
+
+  afterEach(() => {
+    settings.cache.lockedIds = [];
+  });
+
+  test("keeps the last tab of a window on a blank page and locks it", async () => {
+    mockSettings("blank");
+    await wrangleTabsAndPersist([windowTabs[1][0], windowTabs[2][0]]);
+
+    await waitFor(() => expect(chrome.tabs.remove).toHaveBeenCalledTimes(1));
+    expect(chrome.tabs.remove).toHaveBeenCalledWith(1);
+    expect(chrome.tabs.update).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(3, { url: "about:blank" });
+    expect(settings.cache.lockedIds).toEqual([3]);
+  });
+
+  test("keeps the active tab of a window on the URL and locks it", async () => {
+    mockSettings("url", "example.com/start");
+    await wrangleTabsAndPersist(windowTabs[1]);
+
+    await waitFor(() => expect(chrome.tabs.remove).toHaveBeenCalledTimes(1));
+    expect(chrome.tabs.remove).toHaveBeenCalledWith(1);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(2, { url: "https://example.com/start" });
+    expect(settings.cache.lockedIds).toEqual([2]);
+  });
+
+  test("never closes the kept tab after that", async () => {
+    mockSettings("url", "https://example.com/");
+    await wrangleTabsAndPersist(windowTabs[2]);
+    await waitFor(() => expect(settings.cache.lockedIds).toEqual([3]));
+
+    expect(findTabsToCloseCandidates({ 3: 0 }, windowTabs[2])).toEqual([]);
+  });
+
+  test("removes the last tab when going to the URL fails", async () => {
+    mockSettings("blank");
+    chrome.tabs.update = jest.fn(() => Promise.reject(new Error("cannot go to URL")));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    await wrangleTabsAndPersist(windowTabs[2]);
+
+    await waitFor(() => expect(chrome.tabs.remove).toHaveBeenCalledWith(3));
+    expect(settings.cache.lockedIds).toEqual([]);
+  });
+
+  test("removes the last tab when locking it fails", async () => {
+    mockSettings("blank");
+    jest.spyOn(settings, "lockTab").mockRejectedValueOnce(new Error("cannot lock"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    await wrangleTabsAndPersist(windowTabs[2]);
+
+    await waitFor(() => expect(chrome.tabs.remove).toHaveBeenCalledWith(3));
+  });
+
+  test("closes the window when the URL is not set", async () => {
+    mockSettings("url");
+    await wrangleTabsAndPersist(windowTabs[2]);
+
+    expect(chrome.tabs.remove).toHaveBeenCalledWith(3);
+    expect(chrome.tabs.update).not.toHaveBeenCalled();
+  });
+
+  test("closes the window by default", async () => {
+    mockSettings("closeWindow", "https://example.com/");
+    await wrangleTabsAndPersist(windowTabs[2]);
+
+    expect(chrome.tabs.remove).toHaveBeenCalledWith(3);
+    expect(chrome.tabs.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("parseLastTabUrl", () => {
+  test("keeps an absolute URL", () => {
+    expect(parseLastTabUrl(" https://example.com/a?b=c ")).toBe("https://example.com/a?b=c");
+  });
+
+  test("adds https:// when the scheme is missing", () => {
+    expect(parseLastTabUrl("example.com")).toBe("https://example.com/");
+    expect(parseLastTabUrl("example.com:8443/start")).toBe("https://example.com:8443/start");
+    expect(parseLastTabUrl("localhost:3000")).toBe("https://localhost:3000/");
+  });
+
+  test("keeps a URL without slashes after the scheme", () => {
+    expect(parseLastTabUrl("about:blank")).toBe("about:blank");
+  });
+
+  test("returns null when empty or not a URL", () => {
+    expect(parseLastTabUrl("  ")).toBeNull();
+    expect(parseLastTabUrl("http://")).toBeNull();
+  });
+});
+
+describe("getLastTabUrl", () => {
+  test("returns about:blank for a blank page", () => {
+    expect(getLastTabUrl("blank", "https://example.com/")).toBe("about:blank");
+  });
+
+  test("returns the URL, or null when it is not set", () => {
+    expect(getLastTabUrl("url", "https://example.com/")).toBe("https://example.com/");
+    expect(getLastTabUrl("url", "")).toBeNull();
+  });
+
+  test("returns null to close the window", () => {
+    expect(getLastTabUrl("closeWindow", "https://example.com/")).toBeNull();
+  });
 });
 
 describe("filter", () => {

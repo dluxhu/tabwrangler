@@ -418,6 +418,30 @@
     "description": "Label for checkbox to reset a tab's timer only after it's active for 1 second",
     "message": "Reset a tab's timer only after it is active for 1 second"
   },
+  "options_option_lastTabBehavior_blank": {
+    "description": "Option: when Tab Wrangler would close all tabs of a window, it keeps one tab open, shows a blank page (about:blank) in it, and locks it",
+    "message": "Keep the tab, show a blank page, and lock it"
+  },
+  "options_option_lastTabBehavior_closeWindow": {
+    "description": "Option (default): when Tab Wrangler closes the last tab of a window, the window closes too",
+    "message": "Close the tab and the window"
+  },
+  "options_option_lastTabBehavior_label": {
+    "description": "Label for radio buttons that choose what Tab Wrangler does when it would close the last tab of a window",
+    "message": "When Tab Wrangler closes the last tab of a window:"
+  },
+  "options_option_lastTabBehavior_url": {
+    "description": "Option: when Tab Wrangler would close all tabs of a window, it keeps one tab open, goes to the URL in the text field next to this option, and locks the tab",
+    "message": "Keep the tab, go to this URL, and lock it:"
+  },
+  "options_option_lastTabUrl_invalid": {
+    "description": "Error shown under the URL field when what the user typed is not a valid URL",
+    "message": "This is not a valid URL."
+  },
+  "options_option_lastTabUrl_label": {
+    "description": "Accessible name of the text field where the user enters the URL to show in the last tab of a window",
+    "message": "URL for the last tab"
+  },
   "options_option_minTabs_label": {
     "description": "Label preceding the minimum number of tabs. Stale tabs are tabs whose timer has run out, making them eligible to be auto-closed",
     "message": "Auto-close stale tabs if there are more than:"

@@ -20,6 +20,7 @@ export type LockTabSortOrderOption =
   | "reverseChrono"
   | "reverseTabOrder"
   | "tabOrder";
+export type LastTabBehaviorOption = "blank" | "closeWindow" | "url";
 export type MinTabsStrategyOption = "allWindows" | "givenWindow";
 export type SettingsSchemaWrangleOption = "exactURLMatch" | "hostnameAndTitleMatch" | "withDupes";
 
@@ -30,6 +31,8 @@ export interface SettingsSchema {
   debounceOnActivated: boolean;
   filterAudio: boolean;
   filterGroupedTabs: boolean;
+  lastTabBehavior: LastTabBehaviorOption;
+  lastTabUrl: string;
   lockedIds: number[];
   lockedWindowIds: number[];
   lockTabSortOrder: LockTabSortOrderOption | null;
@@ -67,6 +70,16 @@ export const SETTINGS_DEFAULTS: SettingsSchema = {
 
   // Superseded by `tabRules`; read only to migrate.
   filterGroupedTabs: false,
+
+  // What Tab Wrangler does when it would close all tabs of a window:
+  // * "closeWindow" (default) - close them all, and the window closes
+  // * "url" - keep one tab, go to `lastTabUrl` in it, and lock it. Same as "closeWindow" when
+  //   `lastTabUrl` is not a URL.
+  // * "blank" - keep one tab, go to "about:blank" in it, and lock it
+  lastTabBehavior: "closeWindow",
+
+  // The page for the "url" `lastTabBehavior`. Empty when not set.
+  lastTabUrl: "",
 
   // An array of tabids which have been explicitly locked by the user.
   lockedIds: defaultLockedIds,
@@ -156,6 +169,11 @@ const LOCK_TAB_SORT_ORDERS: readonly unknown[] = [
   "reverseTabOrder",
   "tabOrder",
 ] satisfies LockTabSortOrderOption[];
+const LAST_TAB_BEHAVIORS: readonly unknown[] = [
+  "blank",
+  "closeWindow",
+  "url",
+] satisfies LastTabBehaviorOption[];
 const MIN_TABS_STRATEGIES: readonly unknown[] = [
   "allWindows",
   "givenWindow",
@@ -193,6 +211,8 @@ const PORTABLE_SETTING_CHECKS: {
   debounceOnActivated: isBoolean,
   filterAudio: null,
   filterGroupedTabs: null,
+  lastTabBehavior: (value) => LAST_TAB_BEHAVIORS.includes(value),
+  lastTabUrl: (value) => typeof value === "string",
   lockedIds: null,
   lockedWindowIds: null,
   lockTabSortOrder: (value) => value === null || LOCK_TAB_SORT_ORDERS.includes(value),
