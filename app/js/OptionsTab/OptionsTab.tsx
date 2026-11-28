@@ -13,6 +13,7 @@ import ExportConfirm from "./ExportConfirm";
 import FileSaver from "file-saver";
 import { IDLE_PERMISSIONS } from "../constants";
 import ImportConfirm from "./ImportConfirm";
+import LastTabOption from "./LastTabOption";
 import TabRules from "./TabRules";
 import TabWrangleOption from "./TabWrangleOption";
 import Toast from "react-bootstrap/Toast";
@@ -306,6 +307,7 @@ export default function OptionsTab() {
             </label>
           </div>
           <PauseWhenIdleOption onSaveSetting={saveSetting} />
+          <LastTabOption onChange={handleSettingsChange} onSaveSetting={saveSetting} />
         </form>
         <ActiveHours onSaveSetting={saveSetting} />
         <h5 className="mt-3">{chrome.i18n.getMessage("tabCorral_name")}</h5>
